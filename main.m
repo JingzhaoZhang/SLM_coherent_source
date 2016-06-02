@@ -1,12 +1,11 @@
 clear all;
-tag = 'slmFocal_20_600by800_1planefocus';
+tag = 'slmFocal_20_600by800_3points';
 
 
 %% Setup params
 % All length value has unit meter in this file.
 % The 3d region is behind lens after SLM. 
 
-addpath(genpath('minFunc_2012'))
 
 resolutionScale = 20; % The demagnification scale of tubelens and objective. f_tube/f_objective
 lambda = 1e-6;  % Wavelength
@@ -24,14 +23,23 @@ useGPU = 1;     % Use GPU to accelerate computation. Effective when Nx, Ny is la
 
 z = [400 :4: 600] * 1e-6 ;   % Depth level requested in 3D region.
 nfocus = 20;                % z(nfocus) denotes the depth of the focal plane.
-thresholdh = 5e7;          % Intensity required to activate neuron.
-thresholdl = -1e7;             % Intensity required to not to activate neuron.
+thresholdh = 200;          % Intensity required to activate neuron.
+thresholdl = 0;             % Intensity required to not to activate neuron.
 
 %% Point Targets
-radius = 2 * 1e-6 ; % Radius around the point.
-targets = [ 0, 0, 476; 150,150,476; -150,-150,476;] * 1e-6 ; % Points where we want the intensity to be high.
+radius = 10 * 1e-6 ; % Radius around the point.
+targets = [ 0, 0, z(10) * 1e6; 150,150, z(25)*1e6; -150,-150,z(40) * 1e6;] * 1e-6 ; % Points where we want the intensity to be high.
+
 % targets = [150,150,450; 0, 0, 500; -150,-150,550;] * 1e-6 ; % Points where we want the intensity to be high.
-maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,psYHolograph, useGPU);
+Masks = zeros(Nx, Ny, numel(z));
+if useGPU
+    Masks = gpuArray(Masks);
+end
+for i = 1 : numel(z)
+    Masks(:,:,i) = generatePointMask( targets, radius, z(i), Nx, Ny, psXHolograph,psYHolograph, useGPU);
+end
+maskfun = @(i1, i2) Masks(:,:,i1:i2);
+%maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,psYHolograph, useGPU);
 
 
 %% Complex Target
@@ -42,6 +50,17 @@ maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,ps
 % maskfun = @(zi) generateComplexMask( zi, Nx, Ny, maskA, zrange1, maskB, zrange2);
 % 
 
+%% Kernel Function
+HStacks = zeros(Nx, Ny, numel(z));
+if useGPU
+    HStacks = gpuArray(HStacks);
+end
+for i = 1 : numel(z)
+    HStacks(:,:,i) = GenerateFresnelPropagationStack(Nx, Ny, z(i)-z(nfocus), lambda, psXHolograph,psYHolograph, useGPU);
+end
+kernelfun = @(i1, i2) HStacks(:,:,i1:i2);
+% kernelfun = @(i) GenerateFresnelPropagationStack(Nx, Ny, z(i)-z(nfocus), lambda,psXHolograph,psYHolograph, focal_SLM, useGPU);
+
 
 %% Optimization
 
@@ -50,7 +69,7 @@ maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,ps
 % encodes the source intensity. Need to be nonnegative.
 x0 = ones(2*Nx*Ny, 1) * 1e-20;
 % This sets a coherent light source.
-x0(end/2 + Nx*(Ny/2 +0.5)) = 1;
+x0(end/2 + Nx*(Ny/2 +0.5)) = 1/Nx/Ny;
 % x0(Nx*Ny+1:end) = randn([Nx*Ny, 1])/Nx + 1/Nx/Ny;
 % x0 = x0 .* (x0>0) + 1/Nx/Ny *(x0<0);
 
@@ -62,23 +81,11 @@ tic;
 ratio_phase = 1;
 ratio_source = 0;
 
-
-HStacks = zeros(Nx, Ny, numel(z));
-if useGPU
-    HStacks = gpuArray(HStacks);
-end
-for i = 1 : numel(z)
-    HStacks(:,:,i) = GenerateFresnelPropagationStack(Nx, Ny, z(i)-z(nfocus), lambda, psXHolograph,psYHolograph, useGPU);
-end
-kernelfun = @(x) HStacks(:,:,x);
-% kernelfun = @(i) GenerateFresnelPropagationStack(Nx, Ny, z(i)-z(nfocus), lambda,psXHolograph,psYHolograph, focal_SLM, useGPU);
-
-
 f = @(x)SourceFunObj(x, z, Nx, Ny, thresholdh, thresholdl, maskfun, kernelfun, useGPU, ratio_phase, ratio_source);
 
 
 matlab_options = optimoptions('fmincon','GradObj','on', 'display', 'iter', ...
-    'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 5, 'MaxIter', 30);
+    'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 50, 'MaxIter', 30);
 lb = -inf(2*Nx*Ny, 1);
 lb(end/2+1:end) = 0;
 ub = inf(2*Nx*Ny, 1);
@@ -113,10 +120,10 @@ for i = 1:numel(z)
     Ividmeas(:,:,i) = imagez;
     imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
     colorbar;
-    caxis([0, 5e6]);
+    caxis([0, 100]);
     pause(0.1);
 end
-save(['source_phase_result_' tag '.mat'], 'source1', 'phase1');
+save(['phaseonly_result_' tag '.mat'], 'source1', 'phase1');
 %save(['source_phase_result_' tag '.mat'], 'source1', 'phase1', 'source2', 'phase2', 'hologram');
 
 

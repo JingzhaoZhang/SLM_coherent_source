@@ -25,7 +25,9 @@ for k = 1:n
     dz2 = (zi - coords(3))^2;
     dx2 = (us - coords(1)).^2;
     dy2 = (vs - coords(2)).^2;
-    mask = mask + ((dx2 + dy2 + dz2) <= radius^2);
+
+        mask = mask + ((dx2 + dy2 + dz2) <= radius^2);
+
 end
 
 mask = mask > 0;

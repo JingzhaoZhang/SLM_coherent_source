@@ -1,5 +1,5 @@
 clear all;
-tag = 'slmFocal_20_600by800_3points';
+tag = 'slmFocal_20_600by800_AB';
 
 
 %% Setup params
@@ -29,7 +29,7 @@ thresholdl = 0;             % Intensity required to not to activate neuron.
 
 %% Point Targets
 radius = 10 * 1e-6 ; % Radius around the point.
-targets = [ 0, 0, z(10) * 1e6; 150,150, z(25)*1e6; -150,-150,z(40) * 1e6;] * 1e-6 ; % Points where we want the intensity to be high.
+targets = [ 0, 0, 500; 150,150,450; -150,-150,550;] * 1e-6 ; % Points where we want the intensity to be high.
 %targets = [150,150,450; 0, 0, 500; -150,-150,550;] * 1e-6 ; % Points where we want the intensity to be high.
 maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,psYHolograph, useGPU);
 

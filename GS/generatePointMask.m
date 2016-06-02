@@ -22,10 +22,12 @@ us = us * psx; vs = vs * psy;
 
 for k = 1:n
     coords = targets(k , :);
-    dz2 = (zi - coords(3))^2;
+    dz2 = (zi - coords(3));
     dx2 = (us - coords(1)).^2;
     dy2 = (vs - coords(2)).^2;
-    mask = mask + ((dx2 + dy2 + dz2) <= radius^2);
+    if dz2 == 0
+        mask = mask + ((dx2 + dy2 + dz2) <= radius^2);
+    end
 end
 
 mask = mask > 0;
