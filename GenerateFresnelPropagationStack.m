@@ -13,9 +13,6 @@ if useGPU
 end
 
 
-cx=[1:Nx] - (floor(Nx/2)+1);
-cy=[1:Ny] - (floor(Ny/2)+1);
-
 
 
 [us, vs]=ndgrid(cx, cy);

@@ -20,7 +20,8 @@ objectField = exp(1i * phase);
 
 %objectField = phase;
 loss = 0;
-
+temp_sourceh = 0;
+temp_sourcel = 0;
 for i = 1 : numel(z)
     mask = maskFun(z(i));   
     HStack = fresnelKernelFun(i);
@@ -37,10 +38,10 @@ for i = 1 : numel(z)
     diffh = maskh .* (imagez - thresholdh);
     diffl = maskl .* (imagez - thresholdl);
     
-    
-    temp_sourceh = 2 * ifft2(conj(coherent_spectral) .* fft2(diffh));
-    temp_sourcel = 2 * ifft2(conj(coherent_spectral) .* fft2(diffl));
-
+    if ratio2 > 0
+        temp_sourceh = 2 * ifft2(conj(coherent_spectral) .* fft2(diffh));
+        temp_sourcel = 2 * ifft2(conj(coherent_spectral) .* fft2(diffl));
+    end
    
     temp_phaseh = fftshift(ifft2( conj(source_spectral).* fft2(diffh)));
     temp_phaseh = fieldz .* temp_phaseh;

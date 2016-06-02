@@ -1,5 +1,5 @@
 clear all;
-tag = 'slmFocal_20_600by800_AB';
+tag = 'slmFocal_20_600by800_1planefocus';
 
 
 %% Setup params
@@ -24,12 +24,13 @@ useGPU = 1;     % Use GPU to accelerate computation. Effective when Nx, Ny is la
 
 z = [400 :4: 600] * 1e-6 ;   % Depth level requested in 3D region.
 nfocus = 20;                % z(nfocus) denotes the depth of the focal plane.
-thresholdh = 20000000;          % Intensity required to activate neuron.
-thresholdl = 0;             % Intensity required to not to activate neuron.
+thresholdh = 5e7;          % Intensity required to activate neuron.
+thresholdl = -1e7;             % Intensity required to not to activate neuron.
 
 %% Point Targets
-radius = 10 * 1e-6 ; % Radius around the point.
-targets = [150,150,450; 0, 0, 500; -150,-150,550;] * 1e-6 ; % Points where we want the intensity to be high.
+radius = 2 * 1e-6 ; % Radius around the point.
+targets = [ 0, 0, 476; 150,150,476; -150,-150,476;] * 1e-6 ; % Points where we want the intensity to be high.
+% targets = [150,150,450; 0, 0, 500; -150,-150,550;] * 1e-6 ; % Points where we want the intensity to be high.
 maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,psYHolograph, useGPU);
 
 
@@ -44,17 +45,10 @@ maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,ps
 
 %% Optimization
 
-% options.Method = 'lbfgs';
-% options.optTol = 10^(-6);
-% options.progTol = 10^(-6);
-% options.MaxIter = 30;
-% options.MaxFunEvals = 350;
-
-
 % The starting point. reshape(x0(1:Nx*Ny), [Nx, Ny]) encodes the phase on
 % SLM in rads. Normally initialized to zeros. reshape(x0(1+Nx*Ny:end), [Nx, Ny])
 % encodes the source intensity. Need to be nonnegative.
-x0 = ones(2*Nx*Ny, 1) * 1e-10;
+x0 = ones(2*Nx*Ny, 1) * 1e-20;
 % This sets a coherent light source.
 x0(end/2 + Nx*(Ny/2 +0.5)) = 1;
 % x0(Nx*Ny+1:end) = randn([Nx*Ny, 1])/Nx + 1/Nx/Ny;
@@ -81,11 +75,10 @@ kernelfun = @(x) HStacks(:,:,x);
 
 
 f = @(x)SourceFunObj(x, z, Nx, Ny, thresholdh, thresholdl, maskfun, kernelfun, useGPU, ratio_phase, ratio_source);
-%phase_source = minFunc(f, x0, options);
 
 
 matlab_options = optimoptions('fmincon','GradObj','on', 'display', 'iter', ...
-    'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 50, 'MaxIter', 30);
+    'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 5, 'MaxIter', 30);
 lb = -inf(2*Nx*Ny, 1);
 lb(end/2+1:end) = 0;
 ub = inf(2*Nx*Ny, 1);
@@ -96,6 +89,7 @@ phase_source1 = fmincon(f,x0,[],[],[],[],lb,ub,nonlcon,matlab_options);
 phase1 = reshape(phase_source1(1:Nx*Ny), [Nx, Ny]);
 source1 = reshape(phase_source1(Nx*Ny+1:end), [Nx, Ny]);
 hologram = floor(mod(phase1, 2*pi)/2/pi * 255);
+toc;
 %% The following part optimizes phase and source at the same time.
 % ratio_phase = 1;
 % ratio_source = 1; 
@@ -106,8 +100,8 @@ hologram = floor(mod(phase1, 2*pi)/2/pi * 255);
 % 
 % phase2 = reshape(phase_source2(1:Nx*Ny), [Nx, Ny]);
 % source2 = reshape(phase_source2(Nx*Ny+1:end), [Nx, Ny]);
-
-toc;
+% 
+% toc;
 
 %% plot
 Ividmeas = zeros(Nx, Ny, numel(z));
@@ -120,10 +114,9 @@ for i = 1:numel(z)
     imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
     colorbar;
     caxis([0, 5e6]);
-%     filename = sprintf('pointTarget%d.png', i);
-%     print(['data/' filename], '-dpng')
     pause(0.1);
 end
+save(['source_phase_result_' tag '.mat'], 'source1', 'phase1');
 %save(['source_phase_result_' tag '.mat'], 'source1', 'phase1', 'source2', 'phase2', 'hologram');
 
 
