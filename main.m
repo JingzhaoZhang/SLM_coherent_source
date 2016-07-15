@@ -11,8 +11,8 @@ resolutionScale = 20; % The demagnification scale of tubelens and objective. f_t
 lambda = 1e-6;  % Wavelength
 focal_SLM = 0.2; % focal length of the lens after slm.
 psSLM = 20e-6;      % Pixel Size (resolution) at the scattered 3D region
-Nx = 600;       % Number of pixels in X direction
-Ny = 800;       % Number of pixels in Y direction
+Nx = 800;       % Number of pixels in X direction
+Ny = 600;       % Number of pixels in Y direction
 
 
 psXHolograph = lambda * focal_SLM/ psSLM / resolutionScale / Nx;      % Pixel Size (resolution) at the scattered 3D region
@@ -52,7 +52,7 @@ if useGPU
     Masks = gpuArray(Masks);
 end
 for i = 1 : numel(z)
-    Masks(:,:,i) = generateComplexMask( z(i), Nx, Ny, maskA, zrange1, maskB, zrange2);
+    Masks(:,:,i) = generateComplexMask( z(i), Nx, Ny, maskA', zrange1, maskB', zrange2);
 end
 maskfun = @(i1, i2) Masks(:,:,i1:i2);
 
@@ -69,7 +69,7 @@ kernelfun = @(i1, i2) HStacks(:,:,i1:i2);
 % kernelfun = @(i) GenerateFresnelPropagationStack(Nx, Ny, z(i)-z(nfocus), lambda,psXHolograph,psYHolograph, focal_SLM, useGPU);
 
 
-%% Optimization
+%% Pick Source Initialization method
 
 % The starting point. reshape(x0(1:Nx*Ny), [Nx, Ny]) encodes the phase on
 % SLM in rads. Normally initialized to zeros. reshape(x0(1+Nx*Ny:end), [Nx, Ny])
@@ -81,26 +81,27 @@ x0 = ones(2*Nx*Ny, 1) * 1e-20;
 % tag = [tag '_coherentsource'];
 
 % Random init
-x0(Nx*Ny+1:end) = randn([Nx*Ny, 1])/Nx + 1/Nx/Ny;
-x0 = x0 .* (x0>0) + 1/Nx/Ny *(x0<0);
-tag = [tag '_randomsource'];
+% x0(Nx*Ny+1:end) = randn([Nx*Ny, 1])/Nx + 1/Nx/Ny;
+% x0 = x0 .* (x0>0) + 1/Nx/Ny *(x0<0);
+% tag = [tag '_randomsource'];
 
 % Lowpass Random init
-% x0(Nx*Ny+1:end) = randn([Nx*Ny, 1])/Nx + 1/Nx;
-% x0 = x0 .* (x0>0) + 1/Nx/Ny *(x0<0);
-% highfreqimage = reshape(x0(end/2+1:end), [Nx, Ny]);
-% 
-% cx=[1:Nx] - (floor(Nx/2)+1);
-% cy=[1:Ny] - (floor(Ny/2)+1);
-% [us, vs]=ndgrid(cx, cy);
-% Pupil = (us.^2 + vs.^2) < (Nx/10).^2;
-% lowfreqimage = ifft2(ifftshift(fftshift(fft2(highfreqimage)).*Pupil));
-% x0(Nx*Ny+1:end) = lowfreqimage(:);
-% tag = [tag '_lowpasssource'];
+x0(Nx*Ny+1:end) = randn([Nx*Ny, 1])/Nx + 1/Nx;
+x0 = x0 .* (x0>0) + 1/Nx/Ny *(x0<0);
+highfreqimage = reshape(x0(end/2+1:end), [Nx, Ny]);
+
+cx=[1:Nx] - (floor(Nx/2)+1);
+cy=[1:Ny] - (floor(Ny/2)+1);
+[us, vs]=ndgrid(cx, cy);
+Pupil = (us.^2 + vs.^2) < (Nx/10).^2;
+lowfreqimage = ifft2(ifftshift(fftshift(fft2(highfreqimage)).*Pupil));
+x0(Nx*Ny+1:end) = lowfreqimage(:);
+tag = [tag '_lowpasssource'];
 
 tic;
 
 
+%% Optimization phase 1
 % Scale the gradient of phase by 1 and the gradient of source by 0.
 % This makes sure that only the phase is updated in each iteration.
 ratio_phase = 1;
@@ -123,7 +124,8 @@ phase1 = reshape(phase_source1(1:Nx*Ny), [Nx, Ny]);
 source1 = reshape(phase_source1(Nx*Ny+1:end), [Nx, Ny]);
 hologram = floor(mod(phase1, 2*pi)/2/pi * 255);
 toc;
-%% The following part optimizes phase and source at the same time.
+%% Optimization phase 2 
+% The following part optimizes phase and source at the same time.
 ratio_phase = 1;
 ratio_source = 1; 
 
@@ -133,11 +135,13 @@ phase_source1(Nx*Ny+1:end) = source1(:);
 
 
 f = @(x)SourceFunObj(x, z, Nx, Ny, thresholdh, thresholdl, maskfun, kernelfun, useGPU, ratio_phase, ratio_source);
+
 %phase_source = minFunc(f, phase_source, options);
 
-matlab_options = optimoptions('fmincon','GradObj','on', 'display', 'iter', ...
-    'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 150, 'MaxIter', 50,...
-    'TolX', 1e-20, 'TolFun', 1e-20);
+% matlab_options = optimoptions('fmincon','GradObj','on', 'display', 'iter', ...
+%     'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 150, 'MaxIter', 50,...
+%     'TolX', 1e-20, 'TolFun', 1e-20);
+
 phase_source2 = fmincon(f,phase_source1,[],[],[],[],lb,ub,nonlcon,matlab_options);
 
 
