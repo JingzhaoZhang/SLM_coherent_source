@@ -1,5 +1,5 @@
 clear all;
-tag = 'slmFocal_20_600by800_3points';
+tag = 'slmFocal_20_600by800_coaxisPoints';
 
 
 %% Setup params
@@ -22,20 +22,23 @@ psYHolograph = lambda * focal_SLM/ psSLM / resolutionScale / Ny;      % Pixel Si
 useGPU = 1;     % Use GPU to accelerate computation. Effective when Nx, Ny is large (e.g. 600*800).
 
 
-z = [400 :4: 600] * 1e-6 ;   % Depth level requested in 3D region.
+z = [-100 :4: 100] * 1e-6 ;   % Depth level requested in 3D region.
 nfocus = 20;                % z(nfocus) denotes the depth of the focal plane.
 thresholdh = 20000000;          % Intensity required to activate neuron.
 thresholdl = 0;             % Intensity required to not to activate neuron.
 
 %% Point Targets
-radius = 10 * 1e-6 ; % Radius around the point.
-targets = [ 0, 0, z(10) * 1e6; 150,150, z(25)*1e6; -150,-150,z(40) * 1e6;] * 1e-6 ; % Points where we want the intensity to be high.
-%targets = [150,150,450; 0, 0, 500; -150,-150,550;] * 1e-6 ; % Points where we want the intensity to be high.
-maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,psYHolograph, useGPU);
+radius = 9.9 * 1e-6 ; % Radius around the point.
+targets = [ 0, 0, z(10) * 1e6;   0,0, z(40) * 1e6;] * 1e-6 ; % Points where we want the intensity to be high.
+%targets = [ 0, 0, z(25) * 1e6] * 1e-6 ;
+% %targets = [150,150,450; 0, 0, 500; -150,-150,550;] * 1e-6 ; % Points where we want the intensity to be high.
+% maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,psYHolograph, useGPU);
 
 
 %% Complex Target
-% load('largeAB');
+load('largeAB');
+ims(:,:,1) = maskA * 10;
+imdepths = z(25);
 % zrange1 = [450,480] * 1e-6;
 % zrange2 = [550,580] * 1e-6;
 % 
@@ -59,6 +62,10 @@ kernelfun = @(x) HStacks(:,:,x);
 %load('gs_simulation.mat')
 %load('../data/feasible_points.mat')
 Ividmeas = getFeasiblePointTargets( targets, radius, z, nfocus, resolutionScale, lambda, focal_SLM, psSLM, Nx, Ny );
+%Ividmeas = getFeasibleComplexTargets( ims, imdepths, z, nfocus, resolutionScale, lambda, focal_SLM, psSLM, Nx, Ny );
+
+
+
 intensity = 1/Nx/Ny;
 source = sqrt(intensity) * ones(Nx, Ny);
 %source = 10000*source1;
@@ -103,7 +110,7 @@ for i = 1:numel(z)
     Ividmeas(:,:,i) = imagez;
     imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
     colorbar;
-    caxis([0, 50]);
+    caxis([0, 200]);
 %     filename = sprintf('pointTarget%d.png', i);
 %     print(['data/' filename], '-dpng')
     pause(0.1);

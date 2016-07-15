@@ -22,7 +22,7 @@ thresholdl = 0;             % Intensity required to not to activate neuron.
 %%
 source = ones(Nx, Ny)/sqrt(Nx*Ny);
 
-load('gs_result_slmFocal_20_600by800_3points.mat');
+load('gs_result_slmFocal_20_600by800_coaxisPoints.mat');
 Ividmeas1 = zeros(Nx, Ny, numel(z));
 usenoGPU = 0;
 figure();
@@ -32,14 +32,14 @@ for i = 1:numel(z)
     Ividmeas1(:,:,i) = imagez;
     imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
     colorbar;
-    caxis([0, 50]);
+    caxis([0, 150]);
 %     filename = sprintf('pointTarget%d.png', i);
 %     print(['data/' filename], '-dpng')
     %pause(0.1);
 end
 
 
-load('phaseonly_result_slmFocal_20_600by800_3points_lowinten.mat');
+load('phaseonly_result_slmFocal_20_600by800_coaxisPoints.mat');
 
 %load('phaseonly_result_slmFocal_20_600by800_3points.mat');
 Ividmeas2 = zeros(Nx, Ny, numel(z));
@@ -51,14 +51,26 @@ for i = 1:numel(z)
     Ividmeas2(:,:,i) = imagez;
     imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
     colorbar;
-    caxis([0, 50]);
+    caxis([0, 150]);
 %     filename = sprintf('pointTarget%d.png', i);
 %     print(['data/' filename], '-dpng')
     %pause(0.1);
 end
 
 
-v1 = squeeze(Ividmeas1(300,400,:)/max(Ividmeas1(300,400,:)));
-v2 = squeeze(Ividmeas2(300,400,:)/max(Ividmeas2(300,400,:)));
-figure();plot(z, v1, z, v2, z, zeros(1, numel(z)));
 
+
+%%
+x1 = 300;
+y1 = 400;
+x2 = 285;
+y2 = 400;
+
+
+v1 = squeeze(Ividmeas1(x1, y1, :)/max(Ividmeas1(x1, y1,:)));
+v2 = squeeze(Ividmeas2(x1, y1,:)/max(Ividmeas2(x1, y1,:)));
+figure();plot(1:numel(z), v1, 1:numel(z), v2);
+
+v1 = squeeze(Ividmeas1(213, y2,:)/max(Ividmeas1(x1, y1,:)));
+v2 = squeeze(Ividmeas2(213, y2,:)/max(Ividmeas2(x1, y1,:)));
+figure();plot(1:numel(z), v1, 1:numel(z), v2);

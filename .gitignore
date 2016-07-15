@@ -1,1 +1,7 @@
 data/
+*.asv
+*.mat
+!*complexAB.mat
+!*complextarget.mat
+!*largeAB.mat
+!*starTarget.mat

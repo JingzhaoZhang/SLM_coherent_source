@@ -2,8 +2,6 @@
 % All length value has unit meter in this file.
 % The 3d region is behind lens after SLM. 
 
-addpath(genpath('minFunc_2012'))
-
 resolutionScale = 20; % The demagnification scale of tubelens and objective. f_tube/f_objective
 lambda = 1e-6;  % Wavelength
 focal_SLM = 0.2; % focal length of the lens after slm.
@@ -24,30 +22,38 @@ thresholdh = 20000000;          % Intensity required to activate neuron.
 thresholdl = 0;             % Intensity required to not to activate neuron.
 
 %% Generate GIF
-filename = 'source_phase_result_slmFocal_20_600by800';
+filename = 'phaseonly_result_slmFocal_20_600by800_coaxisPoints';
 load(filename)
 Ividmeas = zeros(Nx, Ny, numel(z));
 usenoGPU = 0;
+high = 2000;
+
+source = ones(Nx, Ny)/sqrt(Nx*Ny);
+
 figure();
 for i = 1:numel(z)
     HStack = GenerateFresnelPropagationStack(Nx,Ny,z(i) - z(nfocus), lambda, psXHolograph,psYHolograph, usenoGPU);
-    imagez = fresnelProp(phase2, source2, HStack);
+    imagez = fresnelProp(phase1, source, HStack);
     Ividmeas(:,:,i) = imagez;
-    imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
+%    imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
     colorbar;
-    caxis([0, 5e6]);
+    caxis([0, high]);
 %     filename = sprintf('pointTarget%d.png', i);
 %     print(['data/' filename], '-dpng')
-    pause(0);
+%    pause(0.1);
 end
 
-hlimit = max(max(max(Ividmeas)));
-llimit = min(min(min(Ividmeas)));
-Ividmeas = floor((Ividmeas - llimit)/(hlimit - llimit) * 130);
-Ividmeas(Ividmeas > 63) = 63;
+Ividmeas(Ividmeas > high) = high;
+Ividmeas = floor(Ividmeas/400 * 63);
+
+
+% hlimit = max(max(max(Ividmeas)));
+% llimit = min(min(min(Ividmeas)));
+% Ividmeas = floor((Ividmeas - llimit)/(hlimit - llimit) * 130);
+% Ividmeas(Ividmeas > 63) = 63;
 map = colormap(gray);
 
-gifname = ['data/' filename  '_withSource.gif'];
+gifname = ['gif/' filename  '.gif'];
 for i = 1:numel(z)
     
     if i == 1;
