@@ -1,4 +1,4 @@
-function [ mask ] = generatePointMask( targets, radius, zi, Nx, Ny, psx, psy, useGPU)
+function [ mask ] = generatePointMask( targets, radius, zi, Nx, Ny, psx, psy, zratio, useGPU)
 % GENERATEMASK targets is a list of triple tuple [x,y,z; ...]. (0,0, z')
 % is at the center. z' and vector z is within the same scale. All have
 % unit meter.
@@ -22,7 +22,7 @@ us = us * psx; vs = vs * psy;
 
 for k = 1:n
     coords = targets(k , :);
-    dz2 = (zi - coords(3))^2;
+    dz2 = zratio * (zi - coords(3))^2;
     dx2 = (us - coords(1)).^2;
     dy2 = (vs - coords(2)).^2;
 

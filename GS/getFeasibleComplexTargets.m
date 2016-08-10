@@ -1,4 +1,4 @@
-function [ images ] = getFeasibleComplexTargets( ims, imdepths, z, nfocus, resolutionScale, lambda, focal_SLM, psSLM, Nx, Ny )
+function [ images, phase ] = getFeasibleComplexTargets( ims, imdepths, z, nfocus, resolutionScale, lambda, focal_SLM, psSLM, Nx, Ny )
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 psXHolograph = lambda * focal_SLM/ psSLM / resolutionScale / Nx;      % Pixel Size (resolution) at the scattered 3D region
@@ -9,6 +9,7 @@ images = zeros(Nx, Ny, numel(z));
 maxiter = 20;
 source = ones(Nx,Ny)/Nx/Ny;
 usenoGPU = 0;
+phase = zeros(Nx, Ny);
 
 for i_target = 1:numel(imdepths)
     display(sprintf('Processing target %d', i_target))
@@ -25,6 +26,7 @@ for i_target = 1:numel(imdepths)
         im =  ifft2(ifftshift(imagez))./HStack;
         im = source.*exp(1i * angle(im));        
     end
+    phase = phase + im;
     
     
     for i = 1:numel(z)
@@ -35,7 +37,7 @@ for i_target = 1:numel(imdepths)
     
     
 end
-
+phase = angle(phase);
 % figure()
 % for i = 1:numel(z)
 %     imagesc(images(:,:,i));colormap gray;colorbar;

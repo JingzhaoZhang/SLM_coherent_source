@@ -1,5 +1,5 @@
 %clear all;
-tag = 'slmFocal_20_600by800_coaxisPoint';
+tag = '804_600by800_A';
 
 
 %% Setup params
@@ -7,12 +7,12 @@ tag = 'slmFocal_20_600by800_coaxisPoint';
 % The 3d region is behind lens after SLM. 
 
 
-resolutionScale = 20; % The demagnification scale of tubelens and objective. f_tube/f_objective
+resolutionScale = 1; % The demagnification scale of tubelens and objective. f_tube/f_objective
 lambda = 1e-6;  % Wavelength
 focal_SLM = 0.2; % focal length of the lens after slm.
 psSLM = 20e-6;      % Pixel Size (resolution) at the scattered 3D region
-Nx = 600;       % Number of pixels in X direction
-Ny = 800;       % Number of pixels in Y direction
+Nx = 800;       % Number of pixels in X direction
+Ny = 600;       % Number of pixels in Y direction
 
 
 psXHolograph = lambda * focal_SLM/ psSLM / resolutionScale / Nx;      % Pixel Size (resolution) at the scattered 3D region
@@ -21,40 +21,55 @@ psYHolograph = lambda * focal_SLM/ psSLM / resolutionScale / Ny;      % Pixel Si
 useGPU = 1;     % Use GPU to accelerate computation. Effective when Nx, Ny is large (e.g. 600*800).
 
 
-z = [-100 :4: 100] * 1e-6 ;   % Depth level requested in 3D region.
-nfocus = 20;                % z(nfocus) denotes the depth of the focal plane.
-thresholdh = 1e-2;          % Intensity required to activate neuron.
+z = [-100 : 4: 100] * 3e-4 ;   % Depth level requested in 3D region.
+nfocus = 25;                % z(nfocus) denotes the depth of the focal plane.
+thresholdh = 2e9;          % Intensity required to activate neuron.
 thresholdl = 0;             % Intensity required to not to activate neuron.
 
 %% Point Targets
-radius = 9.9 * 1e-6 ; % Radius around the point.
-targets = [ 0, 0, z(10) * 1e6; -0,-0, z(40) * 1e6;] * 1e-6 ; % Points where we want the intensity to be high.
-%targets = [ 0, 0, z(25) * 1e6;] * 1e-6 ;
-Masks = zeros(Nx, Ny, numel(z));
-if useGPU
-    Masks = gpuArray(Masks);
-end
-for i = 1 : numel(z)
-    Masks(:,:,i) = generatePointMask( targets, radius, z(i), Nx, Ny, psXHolograph,psYHolograph, useGPU);
-end
-maskfun = @(i1, i2) Masks(:,:,i1:i2);
-%maskfun = @(zi)  generatePointMask( targets, radius, zi, Nx, Ny, psXHolograph,psYHolograph, useGPU);
+% radius = 0.5e-4; % Radius around the point.
+% step = Nx/16 * psXHolograph;
+% epsilon = 0;
+% targets = [ step, step, z(10); step, 0, z(10); step, -step, z(10); 0, step, z(10);...
+%     0, 0, z(10); 0, -step, z(10);step+epsilon, step, z(40); step+epsilon, 0, z(40); step+epsilon, -step, z(40); 0+epsilon, step, z(40);...
+%     0+epsilon, 0, z(40); 0+epsilon, -step, z(40);-step-epsilon, step, z(25); -step-epsilon, 0, z(25); -step-epsilon, -step, z(25); 0-epsilon, step, z(25);...
+%     0-epsilon, 0, z(25); 0-epsilon, -step, z(25);] ; % Points where we want the intensity to be high.
+% zratio = 1;
 
-
-%% Complex Target
-% load('largeAB');
-% zrange1 = [z(25) - 5e-6, z(25) + 5e-6];
-% zrange2 = [550,580];
-% % % maskfun = @(zi) generateComplexMask( zi, Nx, Ny, maskA, zrange1, maskB, zrange2);
+% zratio = 5;
+% radius = 3e-4;
+% targets = [ 0, 0, z(5); 0, 0, z(45);];
+% % 
+% % 
 % Masks = zeros(Nx, Ny, numel(z));
 % if useGPU
 %     Masks = gpuArray(Masks);
 % end
 % for i = 1 : numel(z)
-%     Masks(:,:,i) = generateComplexMask( z(i), Nx, Ny, maskA, zrange1, maskB, zrange2);
+%     Masks(:,:,i) = generatePointMask( targets, radius, z(i), Nx, Ny, psXHolograph,psYHolograph, zratio, useGPU);
 % end
 % maskfun = @(i1, i2) Masks(:,:,i1:i2);
-% 
+
+
+%% Complex Target
+load('largeAB');
+step = 2e-3;
+zrange1 = [z(25) - 0.01 * step, z(25)];
+zrange2 = [-1, -1];
+
+% zrange1 = [z(5) - 0.01 * step, z(5)];
+% zrange2 = [z(45) - 0.01 * step, z(45)];
+
+
+Masks = zeros(Nx, Ny, numel(z));
+if useGPU
+    Masks = gpuArray(Masks);
+end
+for i = 1 : numel(z)
+    Masks(:,:,i) = generateComplexMask( z(i), Nx, Ny, maskA', zrange1, maskB', zrange2);
+end
+maskfun = @(i1, i2) Masks(:,:,i1:i2);
+
 
 %% Kernel Function
 HStacks = zeros(Nx, Ny, numel(z));
@@ -76,15 +91,25 @@ kernelfun = @(i1, i2) HStacks(:,:,i1:i2);
 x0 = zeros(Nx*Ny, 1);
 
 %This sets a coherent light source.
-std = Nx/4;
+% intensity = 1;
+% source = sqrt(intensity) * ones(Nx, Ny);
+% tag = [tag, '_uniform'];
+
+%This sets a coherent light source.
+std = Nx/2;
 mu = [0 0];
 Sigma = [std.^2 0; 0 std.^2];
 x1 = [1:Nx] - Nx/2; x2 =  [1:Ny] - Ny/2;
 [X1, X2] = meshgrid(x2,x1);
 F = mvnpdf([X1(:) X2(:)],mu,Sigma);
 source = reshape(F,length(x1),length(x2));
+source = source/max(max(source));
+total_energy = sum(sum(source.^2))
+tag = [tag, '_gaussian'];
 figure();imagesc(source);title('Gaussian source');drawnow;
 
+
+%source = ones(Nx, Ny);
 tic;
 
 
@@ -97,7 +122,7 @@ f = @(x)SourceFunObj( x, source, z, Nx, Ny, thresholdh, thresholdl, maskfun, ker
 
 
 matlab_options = optimoptions('fmincon','GradObj','on', 'display', 'iter', ...
-    'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 150, 'MaxIter', 150,...
+    'algorithm','interior-point','Hessian','lbfgs', 'MaxFunEvals', 200, 'MaxIter', 200,...
     'TolX', 1e-20, 'TolFun', 1e-12);
 lb = -inf(Nx*Ny, 1);
 ub = inf(Nx*Ny, 1);
@@ -143,12 +168,14 @@ for i = 1:numel(z)
     HStack = GenerateFresnelPropagationStack(Nx,Ny,z(i) - z(nfocus), lambda, psXHolograph,psYHolograph, usenoGPU);
     imagez = fresnelProp(phase, source, HStack);
     Ividmeas(:,:,i) = imagez;
-    imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));
-    colorbar;
-    caxis([0, 5e-3]);
+    imagesc(imagez);colormap gray;title(sprintf('Distance z %d', z(i)));colorbar;
+    caxis([0, 10e7]);
     pause(0.1);
 end
-save(['coherentsource_result_' tag '.mat'], 'source', 'phase');
+prctile(Ividmeas(:), 99.99)
+prctile(Ividmeas(:), 99.9)
+max(Ividmeas(:))
+save(['optimization_' tag '.mat'], 'source', 'phase');
 %save(['source_phase_result_' tag '.mat'], 'source1', 'phase1', 'source2', 'phase2', 'hologram');
 
 %save(['simultaneous_result_' tag '.mat'],  'source2', 'phase2', 'hologram');

@@ -1,21 +1,21 @@
 
 %%
-resolutionScale = 20; % The demagnification scale of tubelens and objective. f_tube/f_objective
+resolutionScale = 1; % The demagnification scale of tubelens and objective. f_tube/f_objective
 lambda = 1e-6;  % Wavelength
 focal_SLM = 0.2; % focal length of the lens after slm.
 psSLM = 20e-6;      % Pixel Size (resolution) at the scattered 3D region
-Nx = 600;       % Number of pixels in X direction
-Ny = 800;       % Number of pixels in Y direction
+Nx = 800;       % Number of pixels in X direction
+Ny = 600;       % Number of pixels in Y direction
 
 
 psXHolograph = lambda * focal_SLM/ psSLM / resolutionScale / Nx;      % Pixel Size (resolution) at the scattered 3D region
 psYHolograph = lambda * focal_SLM/ psSLM / resolutionScale / Ny;      % Pixel Size (resolution) at the scattered 3D region
 
-useGPU = 1;     % Use GPU to accelerate computation. Effective when Nx, Ny is large (e.g. 600*800).
+useGPU = 0;     % Use GPU to accelerate computation. Effective when Nx, Ny is large (e.g. 600*800).
 
 
-z = [400 :4: 600] * 1e-6 ;   % Depth level requested in 3D region.
-nfocus = 20;                % z(nfocus) denotes the depth of the focal plane.
+z = [-100 : 4: 100] * 3e-4 ;   % Depth level requested in 3D region.
+nfocus = 25;                % z(nfocus) denotes the depth of the focal plane.
 thresholdh = 20000000;          % Intensity required to activate neuron.
 thresholdl = 0;             % Intensity required to not to activate neuron.
 
